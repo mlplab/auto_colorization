@@ -1,0 +1,8 @@
+# ignore .zip
+*.zip
+# ignore dataset
+*dataset/
+# ignore ckpt
+*ckpt/
+# ignore output
+*output/
