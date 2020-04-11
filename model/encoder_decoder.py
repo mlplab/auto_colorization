@@ -4,7 +4,7 @@
 import torch
 import torchvision
 from torchsummary import summary
-from base_model import CNN_Block, D_CNN_Block
+from .base_model import CNN_Block, D_CNN_Block
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -12,12 +12,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Encoder(torch.nn.Module):
     
-    def __init__(self, out_feature_list=[32, 64, 128]):
+    def __init__(self, out_feature_list=[32, 64, 128], num_layer=3):
         super(Encoder, self).__init__()
         block = []
         feature_list = [1] + out_feature_list
         for i in range(len(feature_list) - 2):
-            block.append(CNN_Block(feature_list[i], feature_list[i + 1], kernel=3))
+            block.append(CNN_Block(feature_list[i], feature_list[i + 1], kernel=3, num_layer=num_layer))
         block.append(CNN_Block(feature_list[-2], feature_list[-1], kernel=3, pool=False))
         self.block = torch.nn.Sequential(*block)
 
@@ -27,12 +27,12 @@ class Encoder(torch.nn.Module):
     
 class Decoder(torch.nn.Module):
     
-    def __init__(self, out_feature_list=[128, 64, 32]):
+    def __init__(self, out_feature_list=[128, 64, 32], num_layer=3):
         super(Decoder, self).__init__()
         block = []
         feature_list = out_feature_list
         for i in range(len(feature_list) - 1):
-            block.append(D_CNN_Block(feature_list[i], feature_list[i + 1], kernel=3))
+            block.append(D_CNN_Block(feature_list[i], feature_list[i + 1], kernel=3, num_layer=num_layer))
         self.block = torch.nn.Sequential(*block)
         self.output = torch.nn.Sequential(
             torch.nn.Conv2d(feature_list[-1], 3, kernel_size=3, padding=1),
@@ -47,13 +47,13 @@ class Decoder(torch.nn.Module):
 
 class CAE(torch.nn.Module):
 
-    def __init__(self, out_feature_list):
+    def __init__(self, out_feature_list, num_layer):
         super(CAE, self).__init__()
 
         encoder_feature = out_feature_list
-        self.encoder = Encoder(encoder_feature)
+        self.encoder = Encoder(encoder_feature, num_layer)
         decoder_feature = out_feature_list[::-1]
-        self.decoder = Decoder(decoder_feature)
+        self.decoder = Decoder(decoder_feature, num_layer)
 
     def forward(self, x):
 

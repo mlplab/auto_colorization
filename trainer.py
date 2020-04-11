@@ -4,15 +4,15 @@
 import os
 import numpy as np
 import datetime
+from tqdm import tqdm, trange
 from time import time
+from collections import OrderedDict
 import torch
 import torchvision
 from torchsummary import summary
-from encoder_decoder import CAE
+from model.encoder_decoder import CAE
 from data import AutoColorDataset
 from utils import Draw_Output, ModelCheckPoint, psnr
-
-
 
 
 class Trainer(object):
@@ -25,54 +25,47 @@ class Trainer(object):
         self.device = device
         self.callbacks = callbacks
 
-    def train(self, epochs, train_dataloader, val_dataloader):
+    def train(self, epochs, train_dataloader, val_dataloader, init_epoch=None):
 
         train_len = len(train_dataloader)
         val_len = len(val_dataloader)
-        print(f'train_step: {train_len}, val_step: {val_len}')
+        if init_epoch is None:
+            init_epoch = 0
+        elif isinstance(init_epoch, int):
+            assert 'Please enter int to init_epochs'
 
-        for epoch in range(epochs):
-            dt_now = datetime.datetime.now()
-            print(dt_now)
-            print('Train')
+        # for epoch in trange(init_epoch, epochs, desc='Epoch'):
+        for epoch in range(init_epoch, epochs):
             self.model.train()
-            epoch_time = time()
+            mode = 'Train'
             train_loss = []
             val_loss = []
-            for i, (inputs, labels) in enumerate(train_dataloader):
-                step_time = time()
-                inputs, labels = self.__trans_data(inputs, labels)
-                loss = self.__step(inputs, labels)
-                train_loss.append(loss.item())
-                psnr_show = psnr(loss)
-                if self.device is 'cuda':
-                    print(f'\rEpoch: {epoch + 1:05d} / {epochs:05d}, Step: {i + 1:05d} / {train_len:05d}, Loss: {loss:.7f}, psnr: {psnr_show:.7f}, StepTime: {time() - step_time:.5f}sec, EpochTime: {time() - epoch_time:.5f}sec, Cache: {torch.cuda.memory_cached(0)/1024**3:.5f}GB', end='')
-                elif self.device is 'cpu':
-                    print(f'\rEpoch: {epoch + 1:05d} / {epochs:05d}, Step: {i + 1:05d} / {train_len:05d}, Loss: {loss:.7f}, psnr: {psnr_show:.7f},StepTime: {time() - step_time:.5f}sec, EpochTime: {time() - epoch_time:.5f}sec', end='')
-                torch.cuda.empty_cache()
-            print()
-            print('Validation')
+            with tqdm(train_dataloader, desc=f'{mode:>5} Epoch: {epoch + 1:05d} / {epochs:05d}', ncols=None, unit='step') as pbar:
+                for i, (inputs, labels) in enumerate(pbar):
+                    inputs, labels = self.__trans_data(inputs, labels)
+                    loss = self.__step(inputs, labels)
+                    train_loss.append(loss.item())
+                    psnr_show = psnr(loss)
+                    self.__step_show(pbar, mode, epoch, loss, psnr_show)
+                    torch.cuda.empty_cache()
+            mode = 'Val'
             self.model.eval()
-            for i, (inputs, labels) in enumerate(val_dataloader):
-                step_time = time()
-                inputs, labels = self.__trans_data(inputs, labels)
-                with torch.no_grad():
-                    loss = self.__step(inputs, labels, train=False)
-                val_loss.append(loss.item())
-                psnr_show = psnr(loss)
-                if self.device is 'cuda':
-                    print(f'\rEpoch: {epoch + 1:05d} / {epochs:05d}, Step: {i + 1:05d} / {val_len:05d}, Loss: {loss:.7f}, psnr: {psnr_show:.7f}, StepTime: {time() - step_time:.5f}sec, EpochTime: {time() - epoch_time:.5f}sec, Cache: {torch.cuda.memory_cached(0)/1024**3:.5f}GB', end='')
-                elif self.device is 'cpu':
-                    print(f'\rEpoch: {epoch + 1:05d} / {epochs:05d}, Step: {i + 1:05d} / {val_len:05d}, Loss: {loss:.7f}, psnr: {psnr_show:.7f},StepTime: {time() - step_time:.5f}sec, EpochTime: {time() - epoch_time:.5f}sec', end='')
-                torch.cuda.empty_cache()
-            print()
+            with tqdm(val_dataloader, desc=f'{mode:>5} Epoch: {epoch + 1:05d} / {epochs:05d}', ncols=None, unit='step') as pbar:
+                for i, (inputs, labels) in enumerate(pbar):
+                    inputs, labels = self.__trans_data(inputs, labels)
+                    with torch.no_grad():
+                        loss = self.__step(inputs, labels, train=False)
+                    val_loss.append(loss.item())
+                    psnr_show = psnr(loss)
+                    self.__step_show(pbar, mode, epoch, loss, psnr_show)
+                    torch.cuda.empty_cache()
             train_loss = np.mean(train_loss)
             val_loss = np.mean(val_loss)
-            print('train_loss:', type(train_loss))
             if self.callbacks:
                 for callback in self.callbacks:
                     callback.callback(self.model, epoch, loss=train_loss, val_loss=val_loss, save=True, device=self.device)
-            print()
+            _, columns = os.popen('stty size', 'r').read().split()
+            print('-' * int(columns))
 
     def __trans_data(self, inputs, labels):
         inputs = inputs.to(self.device)
@@ -89,6 +82,25 @@ class Trainer(object):
             self.optimizer.step()
         return loss
 
+    def __step_show(self, pbar, mode, epoch, loss, psnr_show):
+        if self.device is 'cuda':
+            pbar.set_postfix(
+                    OrderedDict(
+                        Loss=f'{loss:.7f}',
+                        PSNR=f'{psnr_show:.7f}',
+                        Allocate=f'{torch.cuda.memory_allocated(0) / 1024 ** 3:.3f}GB',
+                        Cache=f'{torch.cuda.memory_cached(0) / 1024 ** 3:.3f}GB'
+                        )
+                    )
+        elif self.device is 'cpu':
+            pbar.set_postfix(
+                    OrderedDict(
+                        Loss=f'{loss:.7f};',
+                        PSNR=f'{psnr_show:.7f}'
+                        )
+                    )
+        return self
+
 
 if __name__ == '__main__':
 
@@ -96,6 +108,7 @@ if __name__ == '__main__':
     crop = 96
     batch_size = 2
     epochs = 5
+    data_len = batch_size * 10
 
     # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -111,20 +124,18 @@ if __name__ == '__main__':
         torchvision.transforms.Resize((resize, resize)),
         torchvision.transforms.RandomCrop(crop)
     ])
-    train_dataset = AutoColorDataset(train_path, train_list[:batch_size], transform)
-    test_dataset = AutoColorDataset(test_path, test_list[:batch_size], transform)
+    train_dataset = AutoColorDataset(train_path, train_list[:data_len], transform)
+    test_dataset = AutoColorDataset(test_path, test_list[:data_len], transform)
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-    print(len(train_dataloader))
-    print(len(test_dataloader))
 
-    model = CAE([64, 128, 256]).to(device)
-    summary(model, (1, 96, 96))
+    model = CAE([64, 128], num_layer=2).to(device)
+    # summary(model, (1, 96, 96))
     criterion = torch.nn.MSELoss().to(device)
     param = list(model.parameters())
     optimizer = torch.optim.Adam(lr=1e-3, params=param)
     draw_cb = Draw_Output(test_path, test_list[:9], nrow=3, save_path='output', verbose=False)
     ckpt_cb = ModelCheckPoint('ckpt', 'CAE')
 
-    trainer = Trainer_test(model, criterion, optimizer, device=device, callbacks=[draw_cb, ckpt_cb])
-    trainer.train(epochs, train_dataloader, test_dataloader)
+    trainer = Trainer(model, criterion, optimizer, device=device, callbacks=[draw_cb, ckpt_cb])
+    trainer.train(epochs, train_dataloader, test_dataloader, init_epoch=3)

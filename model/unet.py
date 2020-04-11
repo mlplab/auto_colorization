@@ -3,7 +3,7 @@
 
 import torch
 import torchvision
-from base_model import CNN_Block, CNN_Block_for_UNet
+from .base_model import CNN_Block, CNN_Block_for_UNet
 
 
 class UNet(torch.nn.Module):

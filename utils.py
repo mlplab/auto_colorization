@@ -10,28 +10,9 @@ import torch
 import torchvision
 
 
-def step(inputs, label, model, criterion, train=True):
-    if train is True:
-        optimizer.zero_grad()
-    output = model(inputs)
-    loss = criterion(output, label)
-    if train is True:
-        loss.backward()
-        optimizer.step()
-    return output, loss
-
-
-def plot_img(output_imgs, title):
-    plt.imshow(output_imgs)
-    plt.title('Predict')
-    plt.xticks(color="None")
-    plt.yticks(color="None")
-    plt.tick_params(length=0)
-    return None
 
 
 def psnr(loss):
-
     return 10 * torch.log10(1. ** 2 / loss)
 
 
@@ -93,10 +74,8 @@ class Draw_Output(object):
             save = kwargs['save']
         device = kwargs['device']
         self.epoch_save_path = os.path.join(self.save_path, f'epoch{epoch}')
-        os.makedirs(self.epoch_save_path, exist_ok=True)
         output_imgs = []
-        # encoder.eval()
-        # decoder.eval()
+        model.eval()
         for i, data in enumerate(self.output_data):
             img = self.input_transform(Image.open(os.path.join(self.img_path, data)).convert('L')).unsqueeze(0).to(device)
             with torch.no_grad():
@@ -110,7 +89,7 @@ class Draw_Output(object):
             torchvision.utils.save_image(output_imgs, os.path.join(self.save_path, f'all_imgs/all_imgs_{epoch}.jpg'), nrow=self.nrow, padding=10)
         del output_imgs
         return self
-    
+
     def __draw_output_label(self, output, label, data):
         output = torch.cat((label, output), dim=2)
         output = self.output_transform(output)
@@ -118,7 +97,7 @@ class Draw_Output(object):
         if self.verbose is True:
             print(f'\rDraw Output {data}', end='')
         return self
-    
+
     def __show_output_img_list(self, output_imgs):
         plt.figure(figsize=(16, 9))
         output_imgs_np = torchvision.utils.make_grid(output_imgs, nrow=self.nrow, padding=10)
@@ -130,6 +109,15 @@ class Draw_Output(object):
         plot_img(self.labels_np, 'Label')
         plt.show()
         del output_imgs_np
+        return self
+
+    @staticmethod
+    def plot_img(output_imgs, title):
+        plt.imshow(output_imgs)
+        plt.title('Predict')
+        plt.xticks(color="None")
+        plt.yticks(color="None")
+        plt.tick_params(length=0)
         return self
 
 
