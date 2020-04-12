@@ -44,7 +44,7 @@ class D_CNN_Block(torch.nn.Module):
     
     def __init__(self, in_feature, out_feature, kernel=3, num_layer=3):
         super(D_CNN_Block, self).__init__()
-        layers = [torch.nn.ConvTransBlockpose2d(in_feature, out_feature, kernel_size=2, stride=2)]
+        layers = [torch.nn.ConvTranspose2d(in_feature, out_feature, kernel_size=2, stride=2)]
         features = [out_feature for _ in range(num_layer)]
         for i in range(len(features) - 1):
             layers.append(torch.nn.Conv2d(features[i], features[i + 1], kernel_size=kernel, padding=1))
@@ -69,6 +69,24 @@ class Conv_Block(torch.nn.Module):
         layer.append(torch.nn.Conv2d(input_ch, output_ch,
                                      kernel_size=kernel_size, stride=stride,
                                      padding=padding))
+        self.layer = torch.nn.Sequential(*layer)
+
+    def forward(self, x):
+        return self.layer(x)
+
+
+class D_Conv_Block(torch.nn.Module):
+
+    def __init__(self, input_ch, output_ch, norm=True):
+        super(D_Conv_Block, self).__init__()
+        # layer = []
+        layer = [torch.nn.ConvTranspose2d(input_ch, output_ch, kernel_size=2, stride=2)]
+        # layer.append(torch.nn.Conv2d(input_ch, output_ch,
+        #                              kernel_size=kernel_size, stride=stride,
+        #                              padding=padding))
+        if norm is True:
+            layer.append(torch.nn.BatchNorm2d(output_ch))
+        layer.append(torch.nn.ReLU())
         self.layer = torch.nn.Sequential(*layer)
 
     def forward(self, x):

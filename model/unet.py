@@ -3,17 +3,18 @@
 
 import torch
 import torchvision
-from .base_model import CNN_Block, CNN_Block_for_UNet
+from torchsummary import summary
+from base_model import CNN_Block, CNN_Block_for_UNet
 
 
 class UNet(torch.nn.Module):
     
-    def __init__(self):
+    def __init__(self, input_ch, output_ch, mode='RGB'):
         super(UNet, self).__init__()
         #############################################################################################################
         # Encoder Block
         #############################################################################################################
-        out_feature_list = [1] + [64, 128, 256, 512, 1024]
+        out_feature_list = [input_ch] + [64, 128, 256, 512, 1024]
         encode_feature = out_feature_list
         encode_block = []
         encode_block.append(CNN_Block_for_UNet(encode_feature[0], encode_feature[1], kernel=3, pool=False, num_layer=2))
@@ -31,10 +32,16 @@ class UNet(torch.nn.Module):
             decode_block.append(CNN_Block(decode_feature[i + 1] * 2, decode_feature[i + 1], kernel=3, num_layer=2, pool=False))
         self.up_block = torch.nn.Sequential(*up_block)
         self.decode_block = torch.nn.Sequential(*decode_block)
-        self.output = torch.nn.Sequential(
-            torch.nn.Conv2d(decode_feature[-1], 3, kernel_size=1, padding=0),
-            torch.nn.Sigmoid()
-        )
+        if mode is 'RGB':
+            self.output = torch.nn.Sequential(
+                torch.nn.Conv2d(decode_feature[-1], output_ch, kernel_size=1, padding=0),
+                torch.nn.Sigmoid()
+            )
+        elif mode is 'YCbCr':
+            self.output = torch.nn.Sequential(
+                torch.nn.Conv2d(decode_feature[-1], output_ch, kernel_size=1, padding=0),
+                torch.nn.Tanh()
+            )
         
     def forward(self, x):
         encoder = []
@@ -49,3 +56,11 @@ class UNet(torch.nn.Module):
             x_up = self.decode_block[i](x_up)
         output = self.output(x_up)
         return output
+
+
+if __name__ == '__main__':
+
+    model = UNet(1, 3)
+    # model = Dense_UNet(1, 3, 32, [8, 16, 32, 64, 128])
+    summary(model, (1, 128, 128))
+    torch.save(model.state_dict(), 'unet.pth')

@@ -3,7 +3,6 @@
 
 import os
 import numpy as np
-import datetime
 from tqdm import tqdm, trange
 from time import time
 from collections import OrderedDict
@@ -22,19 +21,23 @@ class Trainer(object):
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,
+                                                                    mode='min',
+                                                                    factor=.2,
+                                                                    patience=2,
+                                                                    verbose=True,
+                                                                    min_lr=1e-8)
         self.device = device
         self.callbacks = callbacks
 
     def train(self, epochs, train_dataloader, val_dataloader, init_epoch=None):
 
-        train_len = len(train_dataloader)
-        val_len = len(val_dataloader)
         if init_epoch is None:
             init_epoch = 0
         elif isinstance(init_epoch, int):
             assert 'Please enter int to init_epochs'
+        
 
-        # for epoch in trange(init_epoch, epochs, desc='Epoch'):
         for epoch in range(init_epoch, epochs):
             self.model.train()
             mode = 'Train'
@@ -65,6 +68,7 @@ class Trainer(object):
                 for callback in self.callbacks:
                     callback.callback(self.model, epoch, loss=train_loss, val_loss=val_loss, save=True, device=self.device)
             _, columns = os.popen('stty size', 'r').read().split()
+            self.scheduler.step(val_loss)
             print('-' * int(columns))
 
     def __trans_data(self, inputs, labels):

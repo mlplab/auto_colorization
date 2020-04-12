@@ -1,5 +1,7 @@
 # ignore .zip
 *.zip
+# ignore .pth
+*.pth
 # ignore dataset
 *dataset/
 # ignore ckpt
