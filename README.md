@@ -22,10 +22,19 @@
 - Dataset
     - Food101
 
+
+---
+
+### 環境設定(Conda)
+
+```
+$ conda create -n [env_name] --file environment.yml
+```
+
 ---
 ---
 
-## 実験経過
+## 進捗
 
 ### 4/8
 
@@ -43,5 +52,4 @@
 
 ### 4/12
 
-- Unetの学習完了. 青色や緑色の再現が出来ていない.
 - Dense-Unetの実装
