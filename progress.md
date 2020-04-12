@@ -35,5 +35,6 @@
     * 今後
 
         1. データ形式の変更(明るさを表現するYCrCb画像，赤っぽい色と青っぽい色と輝度値で表現されるLAB画像) を検討．
+
         2. Channel Attention(SENet)やSeparable Attention
         の導入を検討．

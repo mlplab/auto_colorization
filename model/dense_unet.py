@@ -3,7 +3,7 @@
 
 import torch
 from torchsummary import summary
-from base_model import Conv_Block, D_Conv_Block, DenseBlock, TransBlock
+from .base_model import Conv_Block, D_Conv_Block, DenseBlock, TransBlock
 
 
 class Dense_UNet(torch.nn.Module):

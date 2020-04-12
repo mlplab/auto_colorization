@@ -1,9 +1,9 @@
 # coding: UTF-8
 
 
-from base_model import Conv_Block, DenseBlock, TransBlock
 import torch
 from torchsummary import summary
+from .base_model import Conv_Block, DenseBlock, TransBlock
 
 
 class DenseNet(torch.nn.Module):

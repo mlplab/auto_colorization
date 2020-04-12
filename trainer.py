@@ -36,14 +36,16 @@ class Trainer(object):
             init_epoch = 0
         elif isinstance(init_epoch, int):
             assert 'Please enter int to init_epochs'
-        
+
+        _, columns = os.popen('stty size', 'r').read().split()
+        columns = int(columns) // 2
 
         for epoch in range(init_epoch, epochs):
             self.model.train()
             mode = 'Train'
             train_loss = []
             val_loss = []
-            with tqdm(train_dataloader, desc=f'{mode:>5} Epoch: {epoch + 1:05d} / {epochs:05d}', ncols=None, unit='step') as pbar:
+            with tqdm(train_dataloader, desc=f'{mode:>5} Epoch: {epoch + 1:05d} / {epochs:05d}', ncols=columns, unit='step') as pbar:
                 for i, (inputs, labels) in enumerate(pbar):
                     inputs, labels = self.__trans_data(inputs, labels)
                     loss = self.__step(inputs, labels)
@@ -53,7 +55,7 @@ class Trainer(object):
                     torch.cuda.empty_cache()
             mode = 'Val'
             self.model.eval()
-            with tqdm(val_dataloader, desc=f'{mode:>5} Epoch: {epoch + 1:05d} / {epochs:05d}', ncols=None, unit='step') as pbar:
+            with tqdm(val_dataloader, desc=f'{mode:>5} Epoch: {epoch + 1:05d} / {epochs:05d}', ncols=columns, unit='step') as pbar:
                 for i, (inputs, labels) in enumerate(pbar):
                     inputs, labels = self.__trans_data(inputs, labels)
                     with torch.no_grad():
@@ -66,8 +68,8 @@ class Trainer(object):
             val_loss = np.mean(val_loss)
             if self.callbacks:
                 for callback in self.callbacks:
-                    callback.callback(self.model, epoch, loss=train_loss, val_loss=val_loss, save=True, device=self.device)
-            _, columns = os.popen('stty size', 'r').read().split()
+                    callback.callback(self.model, epoch, loss=train_loss,
+                                      val_loss=val_loss, save=True, device=self.device)
             self.scheduler.step(val_loss)
             print('-' * int(columns))
 
@@ -89,20 +91,20 @@ class Trainer(object):
     def __step_show(self, pbar, mode, epoch, loss, psnr_show):
         if self.device is 'cuda':
             pbar.set_postfix(
-                    OrderedDict(
-                        Loss=f'{loss:.7f}',
-                        PSNR=f'{psnr_show:.7f}',
-                        Allocate=f'{torch.cuda.memory_allocated(0) / 1024 ** 3:.3f}GB',
-                        Cache=f'{torch.cuda.memory_cached(0) / 1024 ** 3:.3f}GB'
-                        )
-                    )
+                OrderedDict(
+                    Loss=f'{loss:.7f}',
+                    PSNR=f'{psnr_show:.7f}',
+                    Allocate=f'{torch.cuda.memory_allocated(0) / 1024 ** 3:.3f}GB',
+                    Cache=f'{torch.cuda.memory_cached(0) / 1024 ** 3:.3f}GB'
+                )
+            )
         elif self.device is 'cpu':
             pbar.set_postfix(
-                    OrderedDict(
-                        Loss=f'{loss:.7f};',
-                        PSNR=f'{psnr_show:.7f}'
-                        )
-                    )
+                OrderedDict(
+                    Loss=f'{loss:.7f};',
+                    PSNR=f'{psnr_show:.7f}'
+                )
+            )
         return self
 
 
@@ -128,18 +130,23 @@ if __name__ == '__main__':
         torchvision.transforms.Resize((resize, resize)),
         torchvision.transforms.RandomCrop(crop)
     ])
-    train_dataset = AutoColorDataset(train_path, train_list[:data_len], transform)
+    train_dataset = AutoColorDataset(
+        train_path, train_list[:data_len], transform)
     test_dataset = AutoColorDataset(test_path, test_list[:data_len], transform)
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    test_dataloader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
     model = CAE([64, 128], num_layer=2).to(device)
     # summary(model, (1, 96, 96))
     criterion = torch.nn.MSELoss().to(device)
     param = list(model.parameters())
     optimizer = torch.optim.Adam(lr=1e-3, params=param)
-    draw_cb = Draw_Output(test_path, test_list[:9], nrow=3, save_path='output', verbose=False)
+    draw_cb = Draw_Output(
+        test_path, test_list[:9], nrow=3, save_path='output', verbose=False)
     ckpt_cb = ModelCheckPoint('ckpt', 'CAE')
 
-    trainer = Trainer(model, criterion, optimizer, device=device, callbacks=[draw_cb, ckpt_cb])
+    trainer = Trainer(model, criterion, optimizer,
+                      device=device, callbacks=[draw_cb, ckpt_cb])
     trainer.train(epochs, train_dataloader, test_dataloader, init_epoch=3)
