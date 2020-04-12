@@ -11,12 +11,14 @@
 
 - OS
     - Linux(Ubuntu16.04)
+    - conda
 - Module
-    - python 3.6.8
-    - numpy 1.16.2
-    - matplotlib 3.1.1
-    - pillow 6.0.0
-    - pytorch 1.1.0
+    - python 3.6.10
+    - numpy 1.18.1
+    - matplotlib 3.1.3
+    - pillow 7.0.0
+    - pytorch 1.4.0
+    - torchvision 0.5.0
 - Dataset
     - Food101
 
@@ -30,3 +32,16 @@
 - レポジトリ作成
 - Encoder - Decoder 構造の着色ネットワークの作成
 - UNet 構造の着色ネットワークの作成
+
+---
+
+### 4/11
+
+- 学習時における progress bar の追加
+
+---
+
+### 4/12
+
+- Unetの学習完了. 青色や緑色の再現が出来ていない.
+- Dense-Unetの実装
